@@ -187,8 +187,16 @@ def gmul_inverse(ins, l, a):
     else:
         return a[(255 - l[ins])]
 
+def decimalToBinaryFixLength(_length, _decimal):
+	binNum = bin(int(_decimal))[2:]
+	outputNum = [int(item) for item in binNum]
+	if len(outputNum) < _length:
+		outputNum = [0]*(_length-len(outputNum)) + outputNum
+	return [int(i) for i in outputNum]
+
 def AES256_encrypt(message, key):
     #print(message)
+    key = decimalToBinaryFixLength(256, key)
     while len(message) % 16 != 0:
         message += " "
     num_blocks = int(len(message)/16)
@@ -280,6 +288,7 @@ def AES256_encrypt(message, key):
     return ret
 
 def AES256_decrypt(message, key):
+    key = decimalToBinaryFixLength(256, key)
     num_blocks = int(len(message)/16)
     blocks = []
     #print(blocks, len(message))
@@ -359,7 +368,7 @@ def AES256_decrypt(message, key):
 
 if __name__ == "__main__":
     i = input("Message to encrypt: ")
-    key = [secrets.randbelow(256) for i in range(32)]
+    key = secrets.randbelow(2**256)
     print("Key", key)
     c = AES256_encrypt(i, key)
     print("Ciphertext", c)
