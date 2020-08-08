@@ -1,19 +1,13 @@
-import numpy as np
-
 # Resources: https://md5decrypt.net/en/Sha1/#answer
 # https://en.wikipedia.org/wiki/SHA-1
 # https://www.metamorphosite.com/one-way-hash-encryption-sha1-data-software
-
-
 
 
 def decimalToBinaryFixLength(_length, _decimal):
 	binNum = bin(int(_decimal))[2:]
 	outputNum = [int(item) for item in binNum]
 	if len(outputNum) < _length:
-		outputNum = np.concatenate((np.zeros((_length-len(outputNum),)),np.array(outputNum)))
-	else:
-		outputNum = np.array(outputNum)
+		outputNum = [0]*(_length-len(outputNum)) + outputNum
 	return [int(i) for i in outputNum]
 
 def binarytoint(bi):
