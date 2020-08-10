@@ -13,31 +13,46 @@ def extract_diffie_hellman_message(message):
 		return None
 	return int(message[7:])
 
-def format_general_message(type, username, password, *args):
+def format_general_message(type, username, password, message_no, *args):
 	for arg in args:
 		assert('.' not in str(arg))
 	args = (str(arg) for arg in args)
 
 	m = None
 	if args:
-		m = f'OK|{username}.{password}|{type}.' + '.'.join(args)
+		m = f'OK|{username}.{password}|{message_no}|{type}.' + '.'.join(args)
 	else:
-		m = f'OK|{username}.{password}|{type}'
+		m = f'OK|{username}.{password}|{message_no}|{type}'
 	return m
+
+INVALID_MESSAGE_RESPONSE = (None, None, None, None)
 
 def extract_general_message(message):
 	if not message.startswith('OK|'):
-		return None, None, None
+		return INVALID_MESSAGE_RESPONSE
 	message = message[3:]
 
 	credentials_end = message.find('|')
 	if credentials_end < 0:
-		return None, None, None
+		return INVALID_MESSAGE_RESPONSE
 
 	credentials = message[:credentials_end].split('.')
 	if len(credentials) != 2:
-    		return None, None, None
+		return INVALID_MESSAGE_RESPONSE
 	message = message[credentials_end + 1:]
 
+
+	message_no_end = message.find('|')
+	if message_no_end < 0:
+		return INVALID_MESSAGE_RESPONSE
+	message_no_raw = message[:message_no_end]
+	if message_no_raw.isalpha() or not message_no_raw.isdigit():
+		return INVALID_MESSAGE_RESPONSE
+	try:
+		message_no = int(message_no_raw)
+	except:
+		return INVALID_MESSAGE_RESPONSE
+	message = message[message_no_end + 1:]
+
 	split_message = message.split('.')
-	return split_message[0], credentials, split_message[1:]
+	return split_message[0], tuple(credentials), message_no, split_message[1:]

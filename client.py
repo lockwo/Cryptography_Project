@@ -64,6 +64,7 @@ class Client:
 		self.session_key = None
 		self.username = None
 		self.password = None
+		self.message_no = 0
 
 		try:
 			self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -173,7 +174,7 @@ class Client:
 				continue
 
 			if line in logged_in_commands[:-2]:
-				message_to_send = format_general_message(line, self.username, self.password)
+				message_to_send = format_general_message(line, self.username, self.password, self.message_no)
 
 			if line in logged_in_commands[-2:]:
 				amount_str = input('amount: $').strip()
@@ -186,9 +187,11 @@ class Client:
 				cents = int(round(cents * 100))
 				dollars = int(dollars)
 
-				message_to_send = format_general_message(line, username, password, dollars, cents)
+				message_to_send = format_general_message(line, self.username, self.password, self.message_no, dollars, cents)
 
 			self.send_message(message_to_send)
+			self.message_no += 1
+
 			error, res = self.receive_message()
 			if error:
 				print(f'error: {error}')

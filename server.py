@@ -38,10 +38,19 @@ class BankAccounts:
 	def __init__(self):
 		self.users = {
 			"samarth": {
-				# ONLY USE PASSWORDS like the ones generated
-				# at https://preshing.com/20110811/xkcd-password-generator/
+				# only password the ones generated at
+				# https://preshing.com/20110811/xkcd-password-generator/
+				# should be used
 				"password": "woodcuriousblankpossible",
-				"balance": 105.50
+				"balance": 4.20
+			},
+			"owen": {
+				"password": "centraltaskpureexchange",
+				"balance": 10101.01
+			},
+			"max": {
+				"password": "rapidlypoetsmallthese",
+				"balance": 54321
 			}
 		}
 		print('initialized bank accounts')
@@ -82,6 +91,7 @@ class Server:
 			raise ConnectionError(f'could not connect to port {port}')
   
 		self.session_keys = {}
+		self.message_numbers = {}
 
 		self.select_args = ([], [], [])
 		self.max_connections = max_connections
@@ -187,6 +197,7 @@ class Server:
 			return False
 
 		self.send_message(sock, OK_START_SESSION_RES, encrypted=True)
+		self.message_numbers[sock] = 0
 		print(f'{format_peername(sock)}: key exchange completed. starting session')
 		return True
 
@@ -217,13 +228,22 @@ class Server:
 			print(f'{format_peername(sock)}: {error}')
 			return False
 
-		command, account, args = extract_general_message(message)
+		command, account, message_no, args = extract_general_message(message)
+
+		if message_no != self.message_numbers[sock]:
+			print(f'{format_peername(sock)}: error unexpected message number (got {message_no} but was expecting {self.message_numbers[sock]})')
+			self.send_message(sock, 'unexpected message number')
+			return False
+
 		if not command or command not in ['echo', 'show-balance', 'withdraw', 'deposit']:
 			print(f'{format_peername(sock)}: error unknown command')
-			return True
+			self.message_numbers[sock] += 1
+			return False
+
 		if not self.bank_accounts.areValidCredentials(*account):
 			print(f'{format_peername(sock)}: error invalid credentials')
 			self.send_message(sock, 'invalid username or password')
+			self.message_numbers[sock] += 1
 			return True
 
 		response_message = None
@@ -264,6 +284,7 @@ class Server:
 			response_message = 'deposit completed'
 
 		self.send_message(sock, response_message)
+		self.message_numbers[sock] += 1
 		return True
 
 if __name__ == '__main__':
