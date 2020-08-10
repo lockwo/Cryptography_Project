@@ -193,7 +193,7 @@ class Server:
 
 		response_message = None
 		if command == 'echo':
-			response_message = 'echo!'
+			response_message = f'you are logged in as {account[0]}'
 		elif command == 'show-balance':
 			balance = self.bank_accounts.getBalance(account[0])
 			response_message = f'balance: ${balance:.2f}'

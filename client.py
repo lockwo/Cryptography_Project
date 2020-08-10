@@ -151,8 +151,7 @@ class Client:
 
 				self.username = username
 				self.password = password
-				print(f'>  logged in as {self.username}\n>  note that credentials will not be checked until you make a transaction')
-				continue
+				line = 'echo'
 
 			if line == 'logout':
 				self.username = None
@@ -202,8 +201,12 @@ class Client:
 				print('unexpected message number')
 				self.close_connection()
 				return
-
 			res = res[message_no_deliminator+1:]
+
+			if res == 'invalid username or password':
+				self.password = None
+				self.username = None
+
 			self.message_no+=2
 			print(f'>  {res}')
 
