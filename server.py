@@ -12,9 +12,13 @@ from utils.keys import GET_DIFFIE_HELLMAN_SECRET
 from utils.keys import SERVER_SIGNING_PRIVATE_KEY
 from utils.numbers import to_int
 from utils.BankAccounts import BankAccounts
+from crypto.sig import Digital_Signature
 
 DIFFIE_HELLMAN_SECRET_RANDOM_SERVER = GET_DIFFIE_HELLMAN_SECRET()
 MAX_MESSAGE_SIZE = 500
+
+sig = Digital_Signature()
+
 
 def format_peername(sock):
 	peername = sock.getpeername()
@@ -89,13 +93,14 @@ class Server:
 		sys.exit(0)
 
 
-	def send_message(self, sock, message, encrypted=True, message_no=None):
+	def send_message(self, sock, message, encrypted=True, message_no=None, first=False):
 		if message_no != None:
 			assert('|' not in message)
 			message = f'{message_no}|{message}'
 		if encrypted:
 			assert(sock in self.session_keys)
-			message = SymmetricEncryption.encrypt_signed(message, self.session_keys[sock], SERVER_SIGNING_PRIVATE_KEY)
+			global sig
+			message = SymmetricEncryption.encrypt_signed(message, self.session_keys[sock], sig, first)
 
 		sock.send(message.encode())
 
@@ -142,7 +147,7 @@ class Server:
 			self.send_message(sock, ERR_KEY_EXCHANGE_CONFIRMATION_FAILED, encrypted=False)
 			return False
 
-		self.send_message(sock, OK_START_SESSION_RES, encrypted=True)
+		self.send_message(sock, OK_START_SESSION_RES, encrypted=True, first=True)
 		self.message_numbers[sock] = 0
 		print(f'{format_peername(sock)}: key exchange completed. starting session')
 		return True
