@@ -201,8 +201,12 @@ class Client:
 				print('unexpected message number')
 				self.close_connection()
 				return
-
 			res = res[message_no_deliminator+1:]
+
+			if res == 'invalid username or password':
+				self.password = None
+				self.username = None
+
 			self.message_no+=2
 			print(f'>  {res}')
 
