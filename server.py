@@ -89,18 +89,13 @@ class Server:
 	
 	def start(self):
 		sockets_in, _, sockets_err = self.select_args
-		sockets_in.extend([sys.stdin, self.server_socket])
+		sockets_in.extend([self.server_socket])
 
 		while True:
 			sockets_in_ready, _, sockets_err_ready = select.select(*self.select_args)
 
 			for sock in sockets_in_ready:
-				# assert(sock is sys.stdin and sock is self.server_socket)
-
 				if sock is sockets_in[0]:
-					self.handle_input()
-
-				elif sock is sockets_in[1]:
 					connection, client_address = sock.accept()
 
 					if len(sockets_in) > self.max_connections + 2:

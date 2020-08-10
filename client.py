@@ -53,7 +53,11 @@ class Client:
 		return False, message
 
 	def close_connection(self, signal=None, frame=None):
-		self.socket.close()
+		print('closed socket')
+		try:
+			self.socket.close()
+		except:
+			pass
 		sys.exit(0)
 
 	def connect(self, host='localhost', port=3000):
