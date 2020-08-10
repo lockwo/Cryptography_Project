@@ -5,28 +5,18 @@ import math
 
 from utils.messages import *
 from utils.symmetric_encryption import SymmetricEncryption
-from utils.constants import DIFFIE_HELLMAN_PUBLIC_G
-from utils.constants import DIFFIE_HELLMAN_PUBLIC_N
-from utils.constants import DIFFIE_HELLMAN_SECRET_RANDOM_CLIENT
-from utils.constants import SERVER_SIGNING_PUBLIC_KEY
+from utils.keys import DIFFIE_HELLMAN_PUBLIC_G
+from utils.keys import DIFFIE_HELLMAN_PUBLIC_N
+from utils.keys import GET_DIFFIE_HELLMAN_SECRET
+from utils.keys import SERVER_SIGNING_PUBLIC_KEY
+from utils.numbers import to_int, to_float
 
+DIFFIE_HELLMAN_SECRET_RANDOM_CLIENT=GET_DIFFIE_HELLMAN_SECRET()
 MAX_MESSAGE_SIZE = 500
 
 def format_peername(sock):
 	peername = sock.getpeername()
 	return f'{peername[0]}:{peername[1]}'
-
-def to_float(amt_str):
-	try:
-		assert(not amt_str.isalpha())
-		amt = float(amt_str)
-		assert(amt >= 0)
-		return amt
-
-	except ValueError:
-		return None
-	except AssertionError:
-		return None
 
 class Client:
 	def send_message(self, message, encrypted=True):
@@ -190,7 +180,6 @@ class Client:
 				message_to_send = format_general_message(line, self.username, self.password, self.message_no, dollars, cents)
 
 			self.send_message(message_to_send)
-			self.message_no += 1
 
 			error, res = self.receive_message()
 			if error:
@@ -198,9 +187,24 @@ class Client:
 				self.close_connection()
 				return
 			if res == '':
-				print(f'connection closed')
+				print(f'remote connection closed')
+				self.close_connection()
+				return
+			
+			message_no_deliminator = res.find('|')
+			if message_no_deliminator == -1:
+				print('invalid format')
+				self.close_connection()
 				return
 
+			received_message_no = to_int(res[:message_no_deliminator])
+			if received_message_no != self.message_no + 1:
+				print('unexpected message number')
+				self.close_connection()
+				return
+
+			res = res[message_no_deliminator+1:]
+			self.message_no+=2
 			print(f'>  {res}')
 
 if __name__ == '__main__':

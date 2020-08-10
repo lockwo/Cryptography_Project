@@ -22,10 +22,22 @@ DIFFIE_HELLMAN_PUBLIC_G=2
 # https://tools.ietf.org/html/rfc5114#section-2.3
 # #########################################################
 
-
+# #########################################################
+# Used to retrieve a valid random number for use as the
+# Diffie Hellman secret random values A and B
+# It is quite obvious if 0 and 1 are picked so we rebound
+# the range [1, N-1] to [3, N-1] using the thresh variable
+# #########################################################
 thresh=3
-DIFFIE_HELLMAN_SECRET_RANDOM_SERVER=thresh+secrets.randbelow(DIFFIE_HELLMAN_PUBLIC_N-thresh-1)
-DIFFIE_HELLMAN_SECRET_RANDOM_CLIENT=thresh+secrets.randbelow(DIFFIE_HELLMAN_PUBLIC_N-thresh-1)
+def GET_DIFFIE_HELLMAN_SECRET():
+    return thresh+secrets.randbelow(DIFFIE_HELLMAN_PUBLIC_N-thresh-1)
 
-SERVER_SIGNING_PUBLIC_KEY= 1 + secrets.randbelow(DIFFIE_HELLMAN_PUBLIC_N - 2)
-SERVER_SIGNING_PRIVATE_KEY= 1 + secrets.randbelow(DIFFIE_HELLMAN_PUBLIC_N - 2)
+# #########################################################
+# Used by the server to sign messages and by the client
+# to verify messages.
+# Note that only the server uses the private key and in
+# reality this would be kept + loaded from somewhere
+# more safely
+# #########################################################
+SERVER_SIGNING_PUBLIC_KEY= 3
+SERVER_SIGNING_PRIVATE_KEY= 11

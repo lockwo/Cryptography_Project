@@ -6,76 +6,19 @@ import math
 
 from utils.messages import *
 from utils.symmetric_encryption import SymmetricEncryption
+from utils.keys import DIFFIE_HELLMAN_PUBLIC_G
+from utils.keys import DIFFIE_HELLMAN_PUBLIC_N
+from utils.keys import GET_DIFFIE_HELLMAN_SECRET
+from utils.keys import SERVER_SIGNING_PRIVATE_KEY
+from utils.numbers import to_int
+from utils.BankAccounts import BankAccounts
 
-from utils.constants import DIFFIE_HELLMAN_PUBLIC_G
-from utils.constants import DIFFIE_HELLMAN_PUBLIC_N
-from utils.constants import DIFFIE_HELLMAN_SECRET_RANDOM_SERVER
-from utils.constants import SERVER_SIGNING_PRIVATE_KEY
-
-
-import time
-import secrets
-
+DIFFIE_HELLMAN_SECRET_RANDOM_SERVER = GET_DIFFIE_HELLMAN_SECRET()
 MAX_MESSAGE_SIZE = 500
 
 def format_peername(sock):
 	peername = sock.getpeername()
 	return f'{peername[0]}:{peername[1]}'
-
-def to_int(amt_str):
-	try:
-		assert(not amt_str.isalpha())
-		amt = int(amt_str)
-		assert(amt >= 0)
-		return amt
-
-	except ValueError:
-		return None
-	except AssertionError:
-		return None
-
-class BankAccounts:
-	def __init__(self):
-		self.users = {
-			"samarth": {
-				# only password the ones generated at
-				# https://preshing.com/20110811/xkcd-password-generator/
-				# should be used
-				"password": "woodcuriousblankpossible",
-				"balance": 4.20
-			},
-			"owen": {
-				"password": "centraltaskpureexchange",
-				"balance": 10101.01
-			},
-			"max": {
-				"password": "rapidlypoetsmallthese",
-				"balance": 54321
-			}
-		}
-		print('initialized bank accounts')
-	def areValidCredentials(self, username, password):
-		# can guess at most 10 passwords / second
-		# no need for annoying max retries and the like
-		time.sleep(0.1 + secrets.randbelow(100) * 0.01)
-		return username in self.users and self.users[username]['password'] == password
-	
-	def getBalance(self, username):
-		assert(username in self.users)
-		return self.users[username]['balance']
-	
-	def withdraw(self, username, amount):
-		assert(username in self.users)
-
-		if amount <= self.users[username]['balance']:
-			self.users[username]['balance'] -= amount
-			return True
-		else:
-			return False
-
-	def deposit(self, username, amount):
-		assert(username in self.users)
-		self.users[username]['balance'] += amount
 
 class Server:
 	def __init__(self):
@@ -146,7 +89,10 @@ class Server:
 		sys.exit(0)
 
 
-	def send_message(self, sock, message, encrypted=True):
+	def send_message(self, sock, message, encrypted=True, message_no=None):
+		if message_no != None:
+			assert('|' not in message)
+			message = f'{message_no}|{message}'
 		if encrypted:
 			assert(sock in self.session_keys)
 			message = SymmetricEncryption.encrypt_signed(message, self.session_keys[sock], SERVER_SIGNING_PRIVATE_KEY)
@@ -232,18 +178,17 @@ class Server:
 
 		if message_no != self.message_numbers[sock]:
 			print(f'{format_peername(sock)}: error unexpected message number (got {message_no} but was expecting {self.message_numbers[sock]})')
-			self.send_message(sock, 'unexpected message number')
+			self.send_message(sock, 'unexpected message number', message_no=self.message_numbers[sock] + 1)
 			return False
 
 		if not command or command not in ['echo', 'show-balance', 'withdraw', 'deposit']:
-			print(f'{format_peername(sock)}: error unknown command')
-			self.message_numbers[sock] += 1
+			print(f'{format_peername(sock)}: error unknown command', message_no=self.message_numbers[sock] + 1)
 			return False
 
 		if not self.bank_accounts.areValidCredentials(*account):
 			print(f'{format_peername(sock)}: error invalid credentials')
-			self.send_message(sock, 'invalid username or password')
-			self.message_numbers[sock] += 1
+			self.send_message(sock, 'invalid username or password', message_no=self.message_numbers[sock] + 1)
+			self.message_numbers[sock] += 2
 			return True
 
 		response_message = None
@@ -251,18 +196,18 @@ class Server:
 			response_message = 'echo!'
 		elif command == 'show-balance':
 			balance = self.bank_accounts.getBalance(account[0])
-			response_message = f'balance: {balance}'
+			response_message = f'balance: ${balance:.2f}'
 		elif command == 'withdraw':
 			if len(args) != 2:
 				print(f'{format_peername(sock)}: error invalid format')
-				self.send_message(sock, 'invalid format')
+				self.send_message(sock, 'invalid format', message_no=self.message_numbers[sock] + 1)
 				return False
 			dollars = to_int(args[0])
 			cents = to_int(args[1])
 
 			if dollars == None or cents == None:
 				print(f'{format_peername(sock)}: error invalid format')
-				self.send_message(sock, 'invalid format')
+				self.send_message(sock, 'invalid format', message_no=self.message_numbers[sock] + 1)
 				return False
 
 			success = self.bank_accounts.withdraw(account[0], dollars + (cents / 100))
@@ -270,21 +215,21 @@ class Server:
 		elif command == 'deposit':
 			if len(args) != 2:
 				print(f'{format_peername(sock)}: error invalid format')
-				self.send_message(sock, 'invalid format')
+				self.send_message(sock, 'invalid format', message_no=self.message_numbers[sock] + 1)
 				return False
 
 			dollars = to_int(args[0])
 			cents = to_int(args[1])
 			if dollars == None or cents == None:
 				print(f'{format_peername(sock)}: error invalid amount')
-				self.send_message(sock, 'invalid format')
+				self.send_message(sock, 'invalid format', message_no=self.message_numbers[sock] + 1)
 				return False
 
 			self.bank_accounts.deposit(account[0], dollars + (cents / 100))
 			response_message = 'deposit completed'
 
-		self.send_message(sock, response_message)
-		self.message_numbers[sock] += 1
+		self.send_message(sock, response_message, message_no=self.message_numbers[sock]+1)
+		self.message_numbers[sock] += 2
 		return True
 
 if __name__ == '__main__':
