@@ -151,8 +151,7 @@ class Client:
 
 				self.username = username
 				self.password = password
-				print(f'>  logged in as {self.username}\n>  note that credentials will not be checked until you make a transaction')
-				continue
+				line = 'echo'
 
 			if line == 'logout':
 				self.username = None
