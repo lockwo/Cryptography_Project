@@ -11,32 +11,34 @@ from utils.keys import GET_DIFFIE_HELLMAN_SECRET
 from utils.keys import SERVER_SIGNING_PUBLIC_KEY
 from utils.numbers import to_int, to_float
 
-DIFFIE_HELLMAN_SECRET_RANDOM_CLIENT=GET_DIFFIE_HELLMAN_SECRET()
-MAX_MESSAGE_SIZE = 500
 
+DIFFIE_HELLMAN_SECRET_RANDOM_CLIENT=GET_DIFFIE_HELLMAN_SECRET()
+MAX_MESSAGE_SIZE = 1000
+SERVER_SIGNING_PUBLIC_KEY = [0, 0, 0, 0]
 def format_peername(sock):
 	peername = sock.getpeername()
 	return f'{peername[0]}:{peername[1]}'
 
 class Client:
+	
 	def send_message(self, message, encrypted=True):
 		if encrypted:
 			message = SymmetricEncryption.encrypt_unsigned(message, self.session_key)
-
 		self.socket.send(message.encode())
 
-	def receive_message(self, encrypted=True, buffer_size=MAX_MESSAGE_SIZE):
+	def receive_message(self, encrypted=True, buffer_size=MAX_MESSAGE_SIZE, first=False, k=None):
+		if first:
+			buffer_size = 5000
 		message = self.socket.recv(buffer_size).decode()
-
+		
 		if message == '':
 			return False, ''
-
 		if len(message) == buffer_size:
 			print('NOTE: potential overflow. consider increasing message buffer size')
 
 		if encrypted:
 			assert(self.session_key != None)
-			message, verified = SymmetricEncryption.decrypt_signed(message, self.session_key, SERVER_SIGNING_PUBLIC_KEY)
+			message, verified = SymmetricEncryption.decrypt_signed(message, self.session_key, SERVER_SIGNING_PUBLIC_KEY, first, k)
 			if not verified:
 				return 'Signature or MAC do not match!', None
 
@@ -91,10 +93,10 @@ class Client:
 			raise ConnectionError(f'could not perform successful key exchange')
 
 		self.session_key = pow(dh_step_2, DIFFIE_HELLMAN_SECRET_RANDOM_CLIENT, DIFFIE_HELLMAN_PUBLIC_N)
-		# print(f'generated shared key: [{str(self.session_key)[0:5]}...]')
+		#print(f'generated shared key: [{str(self.session_key)[0:5]}...]')
 
 		self.send_message(OK_START_SESSION_REQ, encrypted=True)
-		error, session_start_res = self.receive_message(encrypted=True)
+		error, session_start_res = self.receive_message(encrypted=True, first=True, k=SERVER_SIGNING_PUBLIC_KEY)
 		if session_start_res != OK_START_SESSION_RES:
 			raise ConnectionError('server did not confirm session start')
 
@@ -103,7 +105,6 @@ class Client:
 	def start_session(self):
 		local_commands = ['login', 'logout', 'quit', 'help', '']
 		logged_in_commands = ['echo', 'show-balance', 'withdraw', 'deposit']
-
 		while True:
 			prompt = None
 			if self.username:
@@ -152,6 +153,7 @@ class Client:
 				self.username = username
 				self.password = password
 				line = 'echo'
+				continue
 
 			if line == 'logout':
 				self.username = None
@@ -201,12 +203,11 @@ class Client:
 				print('unexpected message number')
 				self.close_connection()
 				return
+
 			res = res[message_no_deliminator+1:]
-
-			if res == 'invalid username or password':
-				self.password = None
-				self.username = None
-
+			if res == 'invalid username or password':	
+				self.password = None	
+				self.username = None	
 			self.message_no+=2
 			print(f'>  {res}')
 
