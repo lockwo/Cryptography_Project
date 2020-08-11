@@ -4,6 +4,7 @@ import signal
 import math
 
 from utils.messages import *
+from utils.digital_signature import DigitalSignature
 from utils.symmetric_encryption import SymmetricEncryption
 from utils.keys import DIFFIE_HELLMAN_PUBLIC_G
 from utils.keys import DIFFIE_HELLMAN_PUBLIC_N
@@ -11,7 +12,8 @@ from utils.keys import GET_DIFFIE_HELLMAN_SECRET
 from utils.keys import SERVER_SIGNING_PUBLIC_KEY
 from utils.numbers import to_int, to_float
 
-DIFFIE_HELLMAN_SECRET_RANDOM_CLIENT=GET_DIFFIE_HELLMAN_SECRET()
+DIFFIE_HELLMAN_SECRET_RANDOM_CLIENT = GET_DIFFIE_HELLMAN_SECRET()
+
 MAX_MESSAGE_SIZE = 500
 
 def format_peername(sock):
@@ -21,7 +23,7 @@ def format_peername(sock):
 class Client:
 	def send_message(self, message, encrypted=True):
 		if encrypted:
-			message = SymmetricEncryption.encrypt_unsigned(message, self.session_key)
+			message = SymmetricEncryption.encrypt(message, self.session_key)
 
 		self.socket.send(message.encode())
 
@@ -36,9 +38,20 @@ class Client:
 
 		if encrypted:
 			assert(self.session_key != None)
-			message, verified = SymmetricEncryption.decrypt_signed(message, self.session_key, SERVER_SIGNING_PUBLIC_KEY)
+			message, verified = SymmetricEncryption.decrypt(message, self.session_key)
 			if not verified:
-				return 'Signature or MAC do not match!', None
+				return 'MAC do not match!', None
+		
+		signature_deliminator = message.rfind('|')
+		if signature_deliminator == -1:
+			return 'message is not signed', None
+
+
+		signature = message[signature_deliminator+1:]
+		message = message[:signature_deliminator]
+
+		if not DigitalSignature.verify(message, signature, SERVER_SIGNING_PUBLIC_KEY):
+			return 'message signature does not match that of the server', None
 
 		return False, message
 
@@ -67,6 +80,8 @@ class Client:
 
 	def initialize_connection(self):
 		error, message = self.receive_message(encrypted=False)
+		if error:
+			raise ConnectionError(error)
 		if message == '':
 			raise ConnectionAbortedError(f'connection closed before handshake completed')
 		if message == ERR_TOO_MANY_CONNS:

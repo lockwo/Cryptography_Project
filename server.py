@@ -5,6 +5,7 @@ import signal
 import math
 
 from utils.messages import *
+from utils.digital_signature import DigitalSignature
 from utils.symmetric_encryption import SymmetricEncryption
 from utils.keys import DIFFIE_HELLMAN_PUBLIC_G
 from utils.keys import DIFFIE_HELLMAN_PUBLIC_N
@@ -93,9 +94,12 @@ class Server:
 		if message_no != None:
 			assert('|' not in message)
 			message = f'{message_no}|{message}'
+		
+		message += '|' + DigitalSignature.sign(message, SERVER_SIGNING_PRIVATE_KEY)
+
 		if encrypted:
 			assert(sock in self.session_keys)
-			message = SymmetricEncryption.encrypt_signed(message, self.session_keys[sock], SERVER_SIGNING_PRIVATE_KEY)
+			message = SymmetricEncryption.encrypt(message, self.session_keys[sock])
 
 		sock.send(message.encode())
 
@@ -109,7 +113,7 @@ class Server:
 
 		if encrypted:
 			assert(sock in self.session_keys)
-			message, verified = SymmetricEncryption.decrypt_unsigned(message, self.session_keys[sock])
+			message, verified = SymmetricEncryption.decrypt(message, self.session_keys[sock])
 			if not verified:
 				return 'MAC does not match!', None
 
