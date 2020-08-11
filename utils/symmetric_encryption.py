@@ -1,5 +1,6 @@
 from crypto.AES import AES256_encrypt, AES256_decrypt
 from crypto.SHA1 import SHA1
+from crypto.sig import Digital_Signature, check_sign
 
 def truncate_key(key):
 	key = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF & key
